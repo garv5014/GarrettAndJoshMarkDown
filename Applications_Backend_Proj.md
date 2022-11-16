@@ -20,7 +20,8 @@
     - Can add games to feature packs. 
     - They can potentially make new feature packs? 
     - They have a basic report that shows the developer's name and how much they are owed. 
-    - They can see another report that shows the most played feature packs in order from most to least along with that packs most played game for the given month. 
+    - They can see another report that shows the most played feature packs in order from most to least along with that packs most played game for the given month.
+    - Can change the price of a current feature pack? 
 
 
  
