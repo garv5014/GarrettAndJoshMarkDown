@@ -98,7 +98,8 @@
     - Consider 5/31 purchase and how it renews: 6/30, 7/31, 8/31, 9/30 ... etc
 
 ## Functions for renewing a subscription
-```sql 
+```sql
+--elephant
 Function: create or replace procedure find_renewable()
 language plpgsql 
 as $$
@@ -158,6 +159,7 @@ Note: as it turns out, adding 1 month to a date in such a case where the date go
 ## Functions for generating the report
 ```sql
 --( DevelopersGamesPlayed/AllGamesPlayed ) * (10% of all BaseSubscription Revenue)
+--elephant
 Function: create or replace function Base_Subscription_Revenue_Per_Dev(dev_id int, month_year timestamp)
 returns money
 language plpgsql as 
