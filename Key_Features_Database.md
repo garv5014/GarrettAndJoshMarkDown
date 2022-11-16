@@ -28,6 +28,13 @@
     ```sql
     select name, featurepackid from game;
     --addtional logic to prove (elephant)
+    select g.game_name from customer
+    inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = 1)
+    inner join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
+    inner join featurepack f on (csf.featpkid = f.id)
+    inner join game_feat gf on (f.id = gf.feat_id)
+    inner join game g on (gf.game_id = g.id and (g.public = true));
+
     ```
     ```sql
     select * from cust_sub_featurepk;
