@@ -10,53 +10,66 @@
     - Retro GamePack (auto-renewal rates: $2/month, $20/year) (no-auto-renewal rate: $3/month)
     - HighSciFi GamePack ($3/month, $30/year) (no-auto-renewal rate: $4/month)
     - DungeonDweller GamePack ($1/month, $10/year) (no-auto-renewal rate: $2/month)
-
-    ```sql
+     ```sql
     select * from featurepack; select * from cust_sub_featurepk;
+    
     ```
+    - A feature pack can be active or inactive letting people be grandfathered in. Customers can't sign up for inactive feature packs
+
+   
 - Some games can only be accessed by the additional feature-packs 
     ```sql
     select name, featurepackid from game;
+    --addtional logic to prove (elephant)
     ```
-- Feature packs can only be 'added' to a subscription (can not be purchased without a subscription)
     ```sql
     select * from cust_sub_featurepk;
+    -- enforced via not null constraint
     ```
-- Subscriptions can be auto-renewed on a monthly or annual basis, and we give a 15% discount at each auto-renewal
-    ```sql
-    select sub.numberofmonths, cust_sub.autorenew, cust_sub.sub_price
-    ``` 
+- Subscriptions can be auto-renewed on a monthly or annual basis
+- Subcriptions are give a 15% discount at each auto-renewal
 - Feature packs have their own auto-renewal cycle
+- Feature packs can only be 'added' to a subscription (can not be purchased without a subscription)
+    ```sql
+    -- ability for autorenewal with discount
+    select sub.numberofmonths, cust_sub.autorenew, cust_sub.sub_price
+    -- look at functions for renewing subscriptions near the bottom (elephant)
+    ``` 
 - Users have one active subscription type, but multiple feature packs
     ```sql
     select numberofmonths, date_sub, exp_date, autorenew, feature_sub from cust_sub_featurepk;
+    -- enforced via ERD
     ```
-
-
 - A history of all prior subscriptions for a user needs to be easily produced
+```sql
+    --implement (elephant)
+```
 
 - Every time a user logs on to our service, 
-    - we validate their account, 
+    - we validate their account, (external autheniscation used) 
     - validate concurrent login limits
     ```sql
-    sum(in_or_out) from log_in_out_history (If nobody is logged 
+    -- implement (elephant)
     ```
     - log the attempt (success or failure)
     ```sql
     select id, customerid, success, timetry from log_in_out_history
     ```
 - Every time the user plays a game we track it
-Query: select * from gameplay_record where (cust_subid = target)
+    ```sql 
+    select * from gameplay_record where (cust_subid = target)
+    ```
 - We can produce reports on which games get the most usage
-```sql 
-select g.game_name 'Game', d.developername 'Developer', sum(gr.duration) 'Time Played'
-from gameplay_record gr
-inner join game g on (g.id = gr.gameid)
-inner join developer d on (g.dev_id = d.id)
-group by 'Game', 'Developer'
-order by 'Time Played' desc; 
-```
-- Revenue Sharing:  We need to share a % of all our revenue with the game developers
+    ```sql 
+    -- double check and change (elephant)
+    select g.game_name 'Game', d.developername 'Developer', sum(gr.duration) 'Time Played'
+    from gameplay_record gr
+    inner join game g on (g.id = gr.gameid)
+    inner join developer d on (g.dev_id = d.id)
+    group by 'Game', 'Developer'
+    order by 'Time Played' desc; 
+    ```
+- Revenue Sharing:  We need to share a % of all our revenue with the game developers (look at the bottom for Functions for generating the report )
     - BaseSubscription Revenue Sharing
         - Calculate this based the formula
         ( DevelopersGamesPlayed/AllGamesPlayed ) * (10% of all BaseSubscription Revenue) => portion for that Developer Near The Bottom
@@ -72,17 +85,18 @@ order by 'Time Played' desc;
 
 - Renewals
     - Your data system has a way of enforcing renewals
-```sql
-Select custid, autorenew from cust_sub;
-```
+    ```sql
+    Select custid, autorenew from cust_sub;
+    ```
 
-```sql
-Select cust_subid, autorenew from cust_sub_featurepk
-```
-- Your system has a way of handling special renewal situations
+    ```sql
+    Select cust_subid, autorenew from cust_sub_featurepk
+    ```
+- Your system has a way of handling special renewal situations (look at functions for renewing a subscription)
     - example:  Purchase 11/30, renewed to 12/30, renewed to 1/30, but what happens in February?  What about March?
     - Hint: It will still need to end on 3/30
     - Consider 5/31 purchase and how it renews: 6/30, 7/31, 8/31, 9/30 ... etc
+
 ## Functions for renewing a subscription
 ```sql 
 Function: create or replace procedure find_renewable()
