@@ -6,6 +6,13 @@
 	```sql 
     select * from sub_tier;
     ```
+    -We can see the number of concurrent logins for each user (to enforce above information)
+    ```sql
+    select lioh.customerid, count(*)
+    from log_in_out_history lioh 
+    where (logout is null)
+    group by lioh.customerid;
+    ```
 - We also sell feature packs that can be added to a subscription:
     - Retro GamePack (auto-renewal rates: $2/month, $20/year) (no-auto-renewal rate: $3/month)
     - HighSciFi GamePack ($3/month, $30/year) (no-auto-renewal rate: $4/month)
