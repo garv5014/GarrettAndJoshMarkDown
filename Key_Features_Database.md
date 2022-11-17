@@ -12,6 +12,10 @@
     from log_in_out_history lioh 
     where (logout is null)
     group by lioh.customerid;
+    
+    customerid|count|
+    ----------+-----+
+             1|    1|
     ```
 - We also sell feature packs that can be added to a subscription:
     - Retro GamePack (auto-renewal rates: $2/month, $20/year) (no-auto-renewal rate: $3/month)
@@ -26,14 +30,18 @@
    
 - Some games can only be accessed by the additional feature-packs 
     ```sql
-    select name, featurepackid from game;
-    --addtional logic to prove (elephant)
+    -- we expect that customer 1 can play Portal(public) and Sonic(in a pack)  but not shovel knight
     select g.game_name from customer
     inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = 1)
     inner join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
     inner join featurepack f on (csf.featpkid = f.id)
     inner join game_feat gf on (f.id = gf.feat_id)
-    inner join game g on (gf.game_id = g.id and (g.public = true));
+    inner join game g on (gf.game_id = g.id or (g.public = true));
+
+    --game_name         |
+    --------------------+
+    --Portal 3          |
+    --Sonic the Hedgehog|
 
     ```
     ```sql
@@ -56,18 +64,29 @@
     ```
 - A history of all prior subscriptions for a user needs to be easily produced
 ```sql
-    --implement (elephant)
+    --Get subscription history
+    select c.firstname, c.surname , cs.date_of_origin , 
+    s.numberofmonths , st.tiername
+    from public.customer c
+    inner join public.cust_sub cs on (c.id = cs.cust_id)
+    inner join public.sub s on (s.id = cs.sub_id)
+    inner join public.sub_tier st on (s.tier_id = st.id);
+    --where c.id = target;
 ```
 
 - Every time a user logs on to our service, 
     - we validate their account, (external autheniscation used) 
     - validate concurrent login limits
     ```sql
-    -- implement (elephant)
+    select lioh.customerid, count(*)
+    from log_in_out_history lioh 
+    where (logout is null)
+    group by lioh.customerid;
+
     ```
     - log the attempt (success or failure)
     ```sql
-    select id, customerid, success, timetry from log_in_out_history
+    select id, customerid, success, login from log_in_out_history;
     ```
 - Every time the user plays a game we track it
     ```sql 
@@ -75,13 +94,12 @@
     ```
 - We can produce reports on which games get the most usage
     ```sql 
-    -- double check and change (elephant)
-    select g.game_name 'Game', d.developername 'Developer', sum(gr.duration) 'Time Played'
+    select g.game_name , d.developername , sum(gr.duration)
     from gameplay_record gr
     inner join game g on (g.id = gr.gameid)
     inner join developer d on (g.dev_id = d.id)
-    group by 'Game', 'Developer'
-    order by 'Time Played' desc; 
+    group by 1,2
+    order by sum(gr.duration) desc; 
     ```
 - Revenue Sharing:  We need to share a % of all our revenue with the game developers (look at the bottom for Functions for generating the report )
     - BaseSubscription Revenue Sharing
@@ -113,8 +131,24 @@
 
 ## Functions for renewing a subscription
 ```sql
---elephant
-Function: create or replace procedure find_renewable()
+
+--before renew procedure ran
+id|cust_id|sub_id|current_term_start     |current_term_exp       |date_of_origin         |autorenew|active|
+--+-------+------+-----------------------+-----------------------+-----------------------+---------+------+
+ 1|      1|     1|2022-11-16 20:43:28.635|2022-12-16 20:43:28.635|2022-11-16 20:43:28.635|true     |true  |
+ 2|      2|     2|2022-11-17 20:43:28.635|2023-11-16 20:43:28.635|2022-11-16 20:43:28.635|false    |true  |
+ 3|      2|     1|2022-10-11 00:00:00.000|2022-11-11 00:00:00.000|2022-11-16 20:43:28.635|true     |      |
+ 4|      3|     1|2022-10-11 00:00:00.000|2022-11-11 00:00:00.000|2022-11-16 20:43:28.635|true     |true  |
+
+ --after renew procedure ran
+id|cust_id|sub_id|current_term_start     |current_term_exp       |date_of_origin         |autorenew|active|
+--+-------+------+-----------------------+-----------------------+-----------------------+---------+------+
+ 1|      1|     1|2022-11-16 20:43:28.635|2022-12-16 20:43:28.635|2022-11-16 20:43:28.635|true     |true  |
+ 2|      2|     2|2022-11-17 20:43:28.635|2023-11-16 20:43:28.635|2022-11-16 20:43:28.635|false    |true  |
+ 3|      2|     1|2022-10-11 00:00:00.000|2022-11-11 00:00:00.000|2022-11-16 20:43:28.635|true     |      |
+ 4|      3|     1|2022-11-11 00:00:00.000|2022-12-16 00:00:00.000|2022-11-16 20:43:28.635|true     |true  |
+
+ create or replace procedure find_renewable()
 language plpgsql 
 as $$
 declare
@@ -122,53 +156,57 @@ renew record;
 
 begin 
 	for renew in 
-	select id, custid, subid, date_sub, exp_date, origdayofmonth, autorenew, subprice order by exp_date desc
+	select id, cust_id, sub_id, current_term_exp, date_of_origin, autorenew, active
+	from cust_sub order by 4 desc
 	loop
-		if(renew.autorenew and (now() - exp_date > '1 second') and (now() - exp_date < '2 months')) then
+		if(renew.autorenew and (now() - renew.current_term_exp >= '1 second') and renew.active = true) then
 		 call renew_sub(renew);
 		end if;
 	end loop;
 
 end;$$
 
-Function: create or replace procedure renew_sub(mycustsub record)
+create or replace procedure renew_sub(mycustsub record)
 language plpgsql 
 as $$
 declare
-countrows int;
+subprice money;
+submonths int;
+tempexp timestamp;
+tempmonths text;
 begin 
-	countrows = count(*) from gj.cust_sub;
-	INSERT INTO gj.cust_sub
-	(id, custid, subid, date_sub, origdayofmonth, autorenew, sub_price)
-	VALUES(countrows + 1, mycustsub.custid, mycustsub.subid, now(), record.origdayofmonth, mycustsub.autorenew, mycustsub.sub_price);
+	subprice = st.baseprice from cust_sub 
+	inner join sub on (mycustsub.sub_id = sub.id)
+	inner join sub_tier st on (st.id = sub.tier_id)
+	where (cust_sub.id = mycustsub.id);
+
+	submonths = s.numberofmonths from cust_sub
+	inner join sub s on (s.id = cust_sub.sub_id)
+	where (cust_sub.id = mycustsub.id);
+	tempmonths = submonths||' months';
+	tempexp = mycustsub.current_term_exp + tempmonths::interval;
+	tempexp = date_trunc('month', tempexp);
+	tempmonths = date_part('day', mycustsub.date_of_origin)||' days';
+	tempexp = tempexp + tempmonths::interval;
+	if(date_part('day', tempexp) < date_part('day', mycustsub.date_of_origin)) then
+	tempexp = date_trunc('month', tempexp);
+	tempexp = tempexp + date_part(
+        'days', 
+        (date_trunc('month', tempexp) + '1 month - 1 day'::interval)
+        );
+	end if;
+	if(mycustsub.autorenew = true) then
+	subprice = subprice * .85;
+	end if;
+	INSERT INTO public.cust_sub_pay_hist
+	(cust_sub_id, pay_date, amt, description)
+	VALUES(mycustsub.id, now(), subprice, 'renew subscription');
+		
+	UPDATE public.cust_sub
+	SET current_term_start= current_term_exp, current_term_exp= tempexp - '1 day'::interval
+	WHERE id=mycustsub.id;
 end;$$
 
-
-
-Function: CREATE OR REPLACE FUNCTION new_sub_set_exp_date() 
-	 RETURNS TRIGGER   
-  LANGUAGE PLPGSQL  
-  as $$  
-declare 
-  submonths int4;BEGIN  
-
-	
-       submonths = s.numberofmonths from gj.cust_sub cs inner join sub s on (cs.id = new.id and cs.subid = s.id);
-		UPDATE gj.cust_sub
-		SET exp_date=(new.date_sub + (submonths||' months')::interval)
-		WHERE id=new.id;
-
-RETURN NEW;  
-END;  
-$$  
-
-
-CREATE TRIGGER NewSubscription  
- after insert 
- ON cust_sub 
- FOR EACH ROW  
- EXECUTE PROCEDURE new_sub_set_exp_date(); 
-Note: as it turns out, adding 1 month to a date in such a case where the date goes ‘year-1-31’ defaults to the maximum number for that month.
 ```
 ## Functions for generating the report
 ```sql
