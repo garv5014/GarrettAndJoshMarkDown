@@ -63,16 +63,16 @@
     -- enforced via ERD
     ```
 - A history of all prior subscriptions for a user needs to be easily produced
-```sql
-    --Get subscription history
-    select c.firstname, c.surname , cs.date_of_origin , 
-    s.numberofmonths , st.tiername
-    from public.customer c
-    inner join public.cust_sub cs on (c.id = cs.cust_id)
-    inner join public.sub s on (s.id = cs.sub_id)
-    inner join public.sub_tier st on (s.tier_id = st.id);
-    --where c.id = target;
-```
+    ```sql
+        --Get subscription history
+        select c.firstname, c.surname , cs.date_of_origin , 
+        s.numberofmonths , st.tiername
+        from public.customer c
+        inner join public.cust_sub cs on (c.id = cs.cust_id)
+        inner join public.sub s on (s.id = cs.sub_id)
+        inner join public.sub_tier st on (s.tier_id = st.id);
+        --where c.id = target;
+    ```
 
 - Every time a user logs on to our service, 
     - we validate their account, (external autheniscation used) 
@@ -133,22 +133,26 @@
 ```sql
 
 --before renew procedure ran
+/* 
 id|cust_id|sub_id|current_term_start     |current_term_exp       |date_of_origin         |autorenew|active|
 --+-------+------+-----------------------+-----------------------+-----------------------+---------+------+
  1|      1|     1|2022-11-16 20:43:28.635|2022-12-16 20:43:28.635|2022-11-16 20:43:28.635|true     |true  |
  2|      2|     2|2022-11-17 20:43:28.635|2023-11-16 20:43:28.635|2022-11-16 20:43:28.635|false    |true  |
  3|      2|     1|2022-10-11 00:00:00.000|2022-11-11 00:00:00.000|2022-11-16 20:43:28.635|true     |      |
  4|      3|     1|2022-10-11 00:00:00.000|2022-11-11 00:00:00.000|2022-11-16 20:43:28.635|true     |true  |
+  */
 
  --after renew procedure ran
-id|cust_id|sub_id|current_term_start     |current_term_exp       |date_of_origin         |autorenew|active|
+/*
+ id|cust_id|sub_id|current_term_start     |current_term_exp       |date_of_origin         |autorenew|active|
 --+-------+------+-----------------------+-----------------------+-----------------------+---------+------+
  1|      1|     1|2022-11-16 20:43:28.635|2022-12-16 20:43:28.635|2022-11-16 20:43:28.635|true     |true  |
  2|      2|     2|2022-11-17 20:43:28.635|2023-11-16 20:43:28.635|2022-11-16 20:43:28.635|false    |true  |
  3|      2|     1|2022-10-11 00:00:00.000|2022-11-11 00:00:00.000|2022-11-16 20:43:28.635|true     |      |
- 4|      3|     1|2022-11-11 00:00:00.000|2022-12-16 00:00:00.000|2022-11-16 20:43:28.635|true     |true  |
+ 4|      3|     1|2022-11-11 00:00:00.000|2022-12-16 00:00:00.000|2022-11-16 20:43:28.635|true     |true  | 
+ */
 
- create or replace procedure find_renewable()
+create or replace procedure find_renewable()
 language plpgsql 
 as $$
 declare
@@ -208,52 +212,35 @@ begin
 end;$$
 
 ```
-## Functions for generating the report
+
+## Functions for generating the calculations
 ```sql
---( DevelopersGamesPlayed/AllGamesPlayed ) * (10% of all BaseSubscription Revenue)
 --elephant
-Function: create or replace function Base_Subscription_Revenue_Per_Dev(dev_id int, month_year timestamp)
-returns money
+create or replace function  generate_base_sub_rev_report(month_year timestamp)
+returns table (
+	Developer text,
+	payout money,
+	Pay_Month timestamp
+)
 language plpgsql as 
 $$
 declare 
-	payPeriodUpperBound timestamp := date_trunc('month', (month_year));
-    payPeriodLowerBound timestamp := date_trunc('month', (month_year + interval '1 month'));
-   	devsum int;
-   	allGameCount float := 0; 
-   	devGameCount float := 0; 
-   	baseSubRev money := 0; 
-   	targetId int := dev_id;
+	all_devs record; 
 begin 
-
-		select count(g.id)
-		into devGameCount
-		from developer as d join 
-		game as g on (targetId = g.dev_id) inner join 
-		gameplay_record as gr on (g.id = gr.gameid and (
-									gr.starttime > payPeriodUpperBound) and (
-									gr.starttime < payPeriodLowerBound )  );
-		raise notice 'devGameCount is %', devGameCount;							
-									
-		select count(g.id)
-		into allGameCount
-		from game as g inner join 
-		gameplay_record as gr on (g.id = gr.gameid
-									and (gr.starttime > payPeriodUpperBound )
-									and (gr.starttime < payPeriodLowerBound )  );
-		raise notice 'allGameCount is %', allGameCount;
-		select sum(cs.sub_price)
-		into baseSubRev
-		from cust_sub cs inner join 
-		sub s on (cs.subid = s.id
-					and (cs.date_sub > payPeriodUpperBound ) 
-					and ( cs.date_sub < payPeriodLowerBound) 	);
-						raise notice 'baseSubRev is %', baseSubRev;
-					raise notice 'baseSubRev is %', ( .1 *baseSubRev);
-					
-	return ((devGameCount/allGameCount) * (.1 * baseSubRev));
+	for all_devs in( 
+	select id, developername
+	from developer
+	)loop 
+		Developer := all_devs.developername;
+		payout := Base_Subscription_Revenue_Per_Dev(all_devs.id, '2022-11-13 MST'::timestamp);
+		Pay_Month := date_trunc('month', (month_year));
+		return next;
+	end loop;
 end;
 $$
+
+
+select * from generate_base_sub_rev_report('2022-11-13 MST'::timestamp)
 
 -- DROP FUNCTION base_subscription_revenue_per_dev(integer,timestamp without time zone)
 select Base_Subscription_Revenue_Per_Dev(1, '2022-11-13 MST'::timestamp)
