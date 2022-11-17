@@ -31,12 +31,14 @@
 - Some games can only be accessed by the additional feature-packs 
     ```sql
     -- we expect that customer 1 can play Portal(public) and Sonic(in a pack)  but not shovel knight
-    select g.game_name from customer
+    select g.game_name, g.id from customer
     inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = 1)
-    inner join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
-    inner join featurepack f on (csf.featpkid = f.id)
-    inner join game_feat gf on (f.id = gf.feat_id)
-    inner join game g on (gf.game_id = g.id or (g.public = true));
+    left join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
+    left join featurepack f on (csf.featpkid = f.id)
+    left join game_feat gf on (f.id = gf.feat_id)
+	left join game g on (gf.game_id = g.id) 
+	where (g.id is not null)
+    Union (select g.game_name , g.id from game g where (g.public = true))
 
     --game_name         |
     --------------------+
