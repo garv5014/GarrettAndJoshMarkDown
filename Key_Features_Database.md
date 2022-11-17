@@ -215,7 +215,6 @@ end;$$
 
 ## Functions for generating the calculations
 ```sql
---elephant
 create or replace function  generate_base_sub_rev_report(month_year timestamp)
 returns table (
 	Developer text,
@@ -242,9 +241,11 @@ $$
 
 select * from generate_base_sub_rev_report('2022-11-13 MST'::timestamp)
 
--- DROP FUNCTION base_subscription_revenue_per_dev(integer,timestamp without time zone)
-select Base_Subscription_Revenue_Per_Dev(1, '2022-11-13 MST'::timestamp)
 
+/* developer|payout|pay_month              |
+---------+------+-----------------------+
+Valve    | $3.62|2022-11-01 00:00:00.000|
+Sega     | $7.23|2022-11-01 00:00:00.000| */
 
 Function: create or replace function Feature_Pack_Revenue_Per_Dev(dev_id int, month_year timestamp, fp_id int)
 returns money
@@ -288,5 +289,97 @@ end;
 $$
 select Feature_Pack_Revenue_Per_Dev(2, '2022-11-13 MST'::timestamp, 2)
 ```
+# Report for feature packs and devs 
+```sql 
+create or replace function Feature_Pack_Revenue_Per_Dev(dev_id int, month_year timestamp, fp_id int)
+returns money
+language plpgsql as 
+$$
+declare 
+	payPeriodUpperBound timestamp := date_trunc('month', (month_year));
+    payPeriodLowerBound timestamp := date_trunc('month', (month_year + interval '1 month'));
+   	devsum int;
+   	allFPGameCount float := 0; 
+   	devFPGameCount float := 0; 
+   	FPSubRev money := 0; 
+   	targetId int := dev_id;
+begin 
+	select count(g.id)
+	into devFpGameCount
+	from featurepack f  inner join 
+	game_feat g_f on(f.id = fp_id) inner join 
+	game g on(g_f.game_id = g.id and (targetId = g.dev_id)) inner join 
+	gameplay_record gr on (g.id = gr.gameid and (
+							gr.starttime > payPeriodUpperBound) and (
+							gr.starttime < payPeriodLowerBound )  );
+						
+	select count(g.id)
+	into allFpGameCount
+	from featurepack f  inner join 
+	game_feat g_f on (g_f.feat_id = f.id) inner join 
+	game g on (g.id = g_f.game_id and public = false) inner join
+	gameplay_record gr on (g.id = gr.gameid and (
+							gr.starttime > payPeriodUpperBound) and (
+							gr.starttime < payPeriodLowerBound )  );
+	select sum(csfph.amt)
+	into FPSubRev
+	from featurepack f inner join 
+	cust_sub_featurepk csf  on(f.id = csf.featpkid ) inner join 
+	cust_sub_feat_pay_hist csfph on(csf.id = csfph.id and (
+							csfph.pay_date  > payPeriodUpperBound) and (
+							csfph.pay_date < payPeriodLowerBound ))
+	
+	;			
+	return ((devFPGameCount/allFPGameCount) * (.1 * FPSubRev));
+end;
+$$
 
+select Feature_Pack_Revenue_Per_Dev(2, '2022-11-13 MST'::timestamp, 2)
+
+
+
+create or replace function  generate_feature_pack_sub_rev_report(month_year timestamp)
+returns table (
+	FeaturePack text,
+	dev_name text,
+	payout money,
+	Pay_Month timestamp, 
+	acitve bool
+)
+language plpgsql as 
+$$
+declare 
+	all_feature_packs record; 
+	all_devs record;
+begin 
+	for all_devs in( 
+	select id, developername
+	from developer
+	)
+	loop 
+		for all_feature_packs in(
+		select id, active, pack_name from featurepack
+		)
+		loop
+			dev_name := all_devs.developername;
+			FeaturePack := all_feature_packs.pack_name;
+			payout := Feature_Pack_Revenue_Per_Dev(all_devs.id,month_year , all_feature_packs.id);
+			Pay_Month := date_trunc('month', (month_year));
+			acitve := all_feature_packs.active;
+			return next;
+		end loop;
+	end loop;
+end;
+$$
+
+
+select * from generate_feature_pack_sub_rev_report('2022-11-13 MST'::timestamp)
+
+/* featurepack|dev_name|payout|pay_month              |acitve|
+-----------+--------+------+-----------------------+------+
+Retro      |Valve   | $0.00|2022-11-01 00:00:00.000|true  |
+Sci-fi     |Valve   | $0.00|2022-11-01 00:00:00.000|true  |
+Retro      |Sega    | $2.50|2022-11-01 00:00:00.000|true  |
+Sci-fi     |Sega    | $2.50|2022-11-01 00:00:00.000|true  | */
+```
 
