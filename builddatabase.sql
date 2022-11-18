@@ -180,5 +180,7 @@ Create table game_feature_pack_rev(
 );
 ALTER TABLE game_feature_pack_rev ADD CONSTRAINT game_feature_pack_rev_fk FOREIGN KEY (game_record_id) REFERENCES gameplay_record(id)
 on delete set null;
+ALTER TABLE game_feature_pack_rev ADD CONSTRAINT game_feature_pack_rev_fk1 FOREIGN KEY (feature_pack_id) REFERENCES featurepack(id)
+on delete set null;
 
 
