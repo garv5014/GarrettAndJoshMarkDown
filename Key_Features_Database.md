@@ -71,13 +71,11 @@ return false;
 end if; 
 end;
 $$;
-
-
 ```
-    ```sql
+ ```sql
     select * from cust_sub_featurepk;
     -- enforced via not null constraint
-    ```
+```
 - Subscriptions can be auto-renewed on a monthly or annual basis
 - Subcriptions are give a 15% discount at each auto-renewal
 - Feature packs have their own auto-renewal cycle
@@ -254,13 +252,72 @@ id|cust_subid|featpkid|autorenew|current_term_start     |current_term_end       
  4|         1|       1|true     |2022-09-22 18:59:17.970|2022-10-22 18:59:17.970|             1|2018-11-17 18:59:17.970|
 
  --after renew procedure ran
- id|cust_subid|featpkid|autorenew|current_term_start     |current_term_end       |numberofmonths|date_of_origin         |
+ id|cust_subid|featpkid|autorenew|current_term_start     |current_term_end       |numberofmonths|date_of_origin    |
 --+----------+--------+---------+-----------------------+-----------------------+--------------+-----------------------+
  1|         1|       1|false    |2022-11-17 18:59:18.048|2022-12-17 18:59:18.048|             1|2022-11-17 18:59:18.048|
  2|         2|       2|true     |2022-11-17 18:59:18.048|2023-11-17 18:59:18.048|            12|2022-11-17 18:59:18.048|
  4|         1|       1|true     |2022-10-22 18:59:17.970|2022-11-17 00:00:00.000|             1|2018-11-17 18:59:17.970|
  */
+create or replace procedure find_renewable_fp()
+language plpgsql 
+as $$
+declare
+renew record;
+isactive bool;
+begin 
+	for renew in 
+	select id , cust_subid, featpkid, current_term_end, date_of_origin, autorenew 
+	from cust_sub_featurepk csf order by 4 desc loop
+		isactive = f.active from featurepack f where (renew.featpkid = f.id);
+		if(renew.autorenew and (now() - renew.current_term_end >= '1 second') and isactive = true) then
+		 call renew_sub_fp(renew);
+		end if;
+	end loop;
 
+end;$$
+
+create or replace procedure renew_sub_fp(mycustsub record)
+language plpgsql 
+as $$
+declare
+subprice money;
+submonths int;
+tempexp timestamp;
+tempmonths text;
+begin 
+	subprice = fp.baseprice from cust_sub_featurepk csf
+	inner join featurepack fp on (fp.id = csf.featpkid)
+	where (csf.id = mycustsub.id);
+
+	submonths = s.numberofmonths from cust_sub
+	inner join sub s on (s.id = cust_sub.sub_id)
+	where (cust_sub.id = mycustsub.id);
+
+	tempmonths = submonths||' months';
+	tempexp = mycustsub.current_term_end + tempmonths::interval;
+	tempexp = date_trunc('month', tempexp);
+	tempmonths = date_part('day', mycustsub.date_of_origin)||' days';
+	tempexp = tempexp + tempmonths::interval;
+
+	if(date_part('day', tempexp) < date_part('day', mycustsub.date_of_origin)) then
+	tempexp = date_trunc('month', tempexp);
+	tempexp = tempexp + date_part(
+        'days', 
+        (date_trunc('month', tempexp) + '1 month - 1 day'::interval)
+        );
+	end if;
+
+	if(mycustsub.autorenew = true) then
+	subprice = subprice - 1::money;
+	end if;
+	INSERT INTO public.cust_sub_feat_pay_hist
+	(cust_sub_feat_id, pay_date, amt, description)
+	VALUES(mycustsub.id, now(), subprice, 'renew subscription on featurepack');
+	
+	UPDATE public.cust_sub_featurepk 
+	SET current_term_start= current_term_end, current_term_end = (tempexp - '1 day'::interval)
+	WHERE id=mycustsub.id;
+end;$$
  ```
 
 ## Functions for generating the calculations
