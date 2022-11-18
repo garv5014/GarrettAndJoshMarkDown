@@ -393,50 +393,36 @@ $procedure$
 ;
 
 -- checks if a game is playable for a given customer.
-CREATE OR REPLACE PROCEDURE public.play_game(IN gameid integer, IN custid integer)
+CREATE OR REPLACE FUNCTION public.game_playable(gameid integer, custid integer)
+ RETURNS boolean
  LANGUAGE plpgsql
-AS $procedure$
+AS $function$
 declare 
-	cust_sub_id int; 
-	game_feat record; 
-	gameplay_record_id int;
-	can_play bool;
-	temp_record record;
-	my_cursor cursor for select gf.game_id , gf.feat_id 
-						from game_feat gf where (gf.game_id = gameid);
+	all_feat_for_game record;
+	target_game int := gameid;
+	game_count int; 
 begin
-	select cs.cust_id 
-	into cust_sub_id
-	from customer c inner join 
-	cust_sub cs on(c.id = cs.cust_id)
-	where (cs.cust_id = custid );
-	 select game_playable(gameid, custid) into can_play;
-	if can_play then 
-		insert into gameplay_record 
-		(cust_subid, gameid, starttime, duration)
-		values (cust_sub_id, gameid, now(), null)
-		returning "id" into gameplay_record_id;
-		
-		open my_cursor;
-		loop
-			fetch my_cursor into temp_record;
-			exit when not found;
-			insert into game_feature_pack_rev 
-			(game_record_id, feature_pack_id) 
-			values (temp_record.game_id, temp_record.feat_id);
-		end loop;
-		close my_cursor;
-	else 
-		raise exception using
-            errcode='CPTGL',
-            message='This customer can not play that game',
-            hint='they are poor';
-	end if; 
+	select count(*)
+	into game_count
+	from (
+	((select g.game_name, g.id from customer
+    inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = custid)
+    left join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
+    left join featurepack f on (csf.featpkid = f.id)
+    left join game_feat gf on (f.id = gf.feat_id)
+	left join game g on (gf.game_id = g.id) 
+	where (g.id is not null and g.id = gameid)) )
+    Union (select g.game_name , g.id from game g where (g.public = true and g.id = gameid) )) as x;
 	
-end; 
-$procedure$
+   	if game_count > 0 then 
+   	return true;
+   	else
+   	return false;
+   	end if; 
+end;
+$function$
 ;
-select * from customer;
+
 
 call makecustomers(10);
 create or replace procedure makecust_sub(counter int)
