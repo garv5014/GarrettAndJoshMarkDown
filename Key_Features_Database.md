@@ -29,23 +29,51 @@
 
    
 - Some games can only be accessed by the additional feature-packs 
-    ```sql
-    -- we expect that customer 1 can play Portal(public) and Sonic(in a pack)  but not shovel knight
-    select g.game_name, g.id from customer
-    inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = 1)
-    left join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
-    left join featurepack f on (csf.featpkid = f.id)
-    left join game_feat gf on (f.id = gf.feat_id)
-	left join game g on (gf.game_id = g.id) 
-	where (g.id is not null)
-    Union (select g.game_name , g.id from game g where (g.public = true))
+```sql
+-- we expect that customer 1 can play Portal(public) and Sonic(in a pack)  but not shovel knight
+select g.game_name, g.id from customer
+inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = 1)
+left join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
+left join featurepack f on (csf.featpkid = f.id)
+left join game_feat gf on (f.id = gf.feat_id)
+left join game g on (gf.game_id = g.id) 
+where (g.id is not null)
+Union (select g.game_name , g.id from game g where (g.public = true))
+--game_name         |
+--------------------+
+--Portal 3          |
+--Sonic the Hedgehog|
+create or replace function game_playable(gameid int, custid int)
+returns bool
+language plpgsql as 
+$$
+declare 
+all_feat_for_game record;
+target_game int := gameid;
+game_count int; 
+begin
+select count(*)
+into game_count
+from (
+((select g.game_name, g.id from customer
+inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = custid)
+left join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
+left join featurepack f on (csf.featpkid = f.id)
+left join game_feat gf on (f.id = gf.feat_id)
+left join game g on (gf.game_id = g.id) 
+where (g.id is not null and g.id = gameid)) )
+Union (select g.game_name , g.id from game g where (g.public = true and g.id = gameid) )) as x;
 
-    --game_name         |
-    --------------------+
-    --Portal 3          |
-    --Sonic the Hedgehog|
+if game_count > 0 then 
+return true;
+else
+return false;
+end if; 
+end;
+$$;
 
-    ```
+
+```
     ```sql
     select * from cust_sub_featurepk;
     -- enforced via not null constraint
