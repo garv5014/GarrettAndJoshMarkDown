@@ -30,7 +30,7 @@ CREATE TABLE log_in_out_history (
 	id serial4 NOT NULL,
 	success bool null,
 	customerid int4 not null,
-	login timestamp null,
+	login timestamp not null,
 	logout timestamp null,
 	CONSTRAINT log_in_out_history_pk PRIMARY KEY (id)
 );
@@ -93,6 +93,7 @@ CREATE TABLE sub (
 	id serial4 NOT NULL,
 	tier_id int4 not NULL,
 	numberofmonths int4 null,
+
 	CONSTRAINT sub_pk PRIMARY KEY (id)
 );
 ALTER TABLE  sub ADD CONSTRAINT sub_fk_1 FOREIGN KEY (tier_id) REFERENCES sub_tier(id)
@@ -138,6 +139,7 @@ CREATE TABLE cust_sub_featurepk (
 	current_term_end timestamp not null,
 	numberofmonths int null,
 	date_of_origin timestamp not null,
+	active bool null constraint notneg check (true or null),
 	CONSTRAINT cust_sub_featurepk_pk PRIMARY KEY (id)
 );
 
@@ -180,7 +182,5 @@ Create table game_feature_pack_rev(
 );
 ALTER TABLE game_feature_pack_rev ADD CONSTRAINT game_feature_pack_rev_fk FOREIGN KEY (game_record_id) REFERENCES gameplay_record(id)
 on delete set null;
-ALTER TABLE game_feature_pack_rev ADD CONSTRAINT game_feature_pack_rev_fk1 FOREIGN KEY (feature_pack_id) REFERENCES featurepack(id)
+ALTER TABLE game_feature_pack_rev ADD CONSTRAINT game_feature_pack_rev_fk1  FOREIGN KEY (feature_pack_id) REFERENCES featurepack(id)
 on delete set null;
-
-
