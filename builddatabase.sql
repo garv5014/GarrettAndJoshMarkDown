@@ -93,7 +93,6 @@ CREATE TABLE sub (
 	id serial4 NOT NULL,
 	tier_id int4 not NULL,
 	numberofmonths int4 null,
-
 	CONSTRAINT sub_pk PRIMARY KEY (id)
 );
 ALTER TABLE  sub ADD CONSTRAINT sub_fk_1 FOREIGN KEY (tier_id) REFERENCES sub_tier(id)
@@ -181,4 +180,5 @@ Create table game_feature_pack_rev(
 );
 ALTER TABLE game_feature_pack_rev ADD CONSTRAINT game_feature_pack_rev_fk FOREIGN KEY (game_record_id) REFERENCES gameplay_record(id)
 on delete set null;
+
 
