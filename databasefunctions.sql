@@ -294,11 +294,11 @@ begin
 end;
 $$
 ;--makes cust_sub_featurepack
-CREATE OR REPLACE PROCEDURE make_cust_sub_feat(IN number_of_potential_contracts integer DEFAULT 1)
- LANGUAGE plpgsql 
-AS $$
+CREATE OR REPLACE PROCEDURE public.make_cust_sub_feat(IN number_of_potential_contracts integer DEFAULT 1)
+ LANGUAGE plpgsql
+AS $procedure$
 declare 
-	cust_curs cursor for select * from customer; 
+	cust_curs cursor for select * from cust_sub; 
 	cust_current record;
 	rSub int;
 	rDeterminer int;
@@ -309,7 +309,6 @@ declare
 	temp_autorenew bool;
 	temp_interval text;
 begin 
-	
 	open cust_curs;
 	loop
 		fetch cust_curs into cust_current;
@@ -319,24 +318,18 @@ begin
 		loop 
 			
 			SELECT
-				sub.id 
+				f.id 
 			into rSub
 			FROM
-				sub OFFSET floor(random() * (
+				featurepack f OFFSET floor(random() * (
 					SELECT
 						COUNT(*)
-						FROM sub))
+						FROM featurepack))
 			LIMIT 1;
 			
 			origin_date :='2020-01-01'::timestamp + (random() * (interval '2 years')) + '0 days';
 			temp_term_start := origin_date + (random() * (interval '2 years')) + '0 days'; 
 		
-			select s.numberofmonths
-			into temp_interval
-			from sub s 
-			where (rSub = s.id);
-			temp_interval := temp_interval || ' months';
-			temp_term_exp := temp_term_start + temp_interval::interval;
 			select (random() * 10) 
 			into rDeterminer;
 			
@@ -353,17 +346,18 @@ begin
 			end if;
 			if((cust_current.id % 2) = 0) then
 			insert into cust_sub_featurepk 
-			(cust_subid, featpkid, current_term_start, current_term_exp, date_of_origin, autorenew,active, numberofmonths)
-			values (cust_current.id, rsub, temp_term_start, temp_term_exp, origin_date, temp_autorenew, temp_active, 1);
+			(cust_subid, featpkid, current_term_start, current_term_end, date_of_origin, autorenew,active, numberofmonths)
+			values (cust_current.id, rsub, temp_term_start,  temp_term_start + '1 month', origin_date, temp_autorenew, temp_active, 1);
 			else
 			insert into cust_sub_featurepk 
-			(cust_subid, featpkid, current_term_start, current_term_exp, date_of_origin, autorenew,active, numberofmonths)
-			values (cust_current.id, rsub, temp_term_start, temp_term_exp, origin_date, temp_autorenew, temp_active, 12);
+			(cust_subid, featpkid, current_term_start, current_term_end, date_of_origin, autorenew,active, numberofmonths)
+			values (cust_current.id, rsub, temp_term_start, temp_term_start + '1 year', origin_date, temp_autorenew, temp_active, 12);
 			end if;
 		end loop;
 	end loop;
 	close cust_curs; 
-end;$$
+end;$procedure$
+;
 
 -- makes_login_history
 
