@@ -1,5 +1,4 @@
 
-set search_path to public;
 drop table if exists  cust_sub cascade;
 drop table if exists cust_sub_featurepk cascade;
 drop table if exists customer cascade;
@@ -13,6 +12,7 @@ drop table if exists sub cascade;
 drop table if exists sub_tier cascade;
 drop table if exists cust_sub_pay_hist cascade;
 drop table if exists cust_sub_feat_pay_hist cascade;
+drop table if exists game_feature_pack_rev cascade;
 
 CREATE TABLE customer (
 	id serial4 NOT NULL,
@@ -112,15 +112,11 @@ CREATE TABLE cust_sub (
 	CONSTRAINT cust_sub_pk PRIMARY KEY (id)
 );
 
-
-
-
 ALTER TABLE  cust_sub ADD CONSTRAINT cust_sub_fk FOREIGN KEY (cust_id) REFERENCES customer(id)
 on delete set null;
 
 ALTER TABLE  cust_sub ADD CONSTRAINT cust_sub_1_fk FOREIGN KEY (sub_id) REFERENCES sub(id)
 on delete set null;
-
 
 create table cust_sub_pay_hist (
 	id serial4 not null,
@@ -177,74 +173,12 @@ on delete set null;
 ALTER TABLE  gameplay_record ADD CONSTRAINT gameplay_record_fk_1 FOREIGN KEY (gameid) REFERENCES game(id)
 on delete set null;
 
+Create table game_feature_pack_rev(
+	id serial4 not null, 
+	game_record_id int4,
+	feature_pack_id int4,
+	constraint game_feat_pack_pk primary key (id)
+);
+ALTER TABLE game_feature_pack_rev ADD CONSTRAINT game_feature_pack_rev_fk FOREIGN KEY (game_record_id) REFERENCES gameplay_record(id)
+on delete set null;
 
-
-
-INSERT INTO customer
-(email, firstname, surname, username, password_, payment_info)
-VALUES('fake@fake.com', 'Faker', 'Fakerson', 'Username', 'Drowssap', '1234 5678 9012'),
-('aa@gmail.com', 'John', 'Smith', 'Doctor', 'TARDIS', '0987 6543 2156')
-, ('bb@gmail.com', 'Chris', 'Smith', 'Boomer', 'Zoomer', '6543 0987 2156');
-
-INSERT into log_in_out_history
-(success, customerid, login, logout)
-VALUES(true, 1, now(), now() + '30 minutes');
-
-INSERT INTO log_in_out_history
-(success, customerid, login)
-VALUES(true, 1, now()- interval '1 day');
-
-
-
-INSERT INTO developer
-(developername, company_address)
-VALUES('Valve', '42 Wallaby Way, Sydney, Australia'), ('Sega', '2643 N, 736 E, Green Hill, WY, USA');
-
-INSERT INTO featurepack
-(pack_name, baseprice, active)
-values('Retro', 5.00, true), ('Sci-fi', 3.00, true);
-
-
-INSERT INTO game
-(game_name, dev_id, public)
-VALUES('Portal 3', 1, true), ('Sonic the Hedgehog', 2, false), ('Shovel Knight', 2, false);
-
-INSERT INTO game_feat
-(game_id, feat_id)
-VALUES(2, 1), (3,2);
-
-INSERT INTO sub_tier
-(baseprice, tiername, concurrentlogin, active)
-VALUES(10, 'Gold', 5, true),(8, 'Silver', 2, true),(5, 'Bronze', 1, true), (6, 'Silver', 2, false);
-
-INSERT INTO sub
-(tier_id, numberofmonths)
-VALUES(1, 1), (1, 12),(2, 1), (2, 12),(3, 1), (3, 12),(4, 1), (4, 12);
-
-
-
-INSERT INTO cust_sub
-(cust_id, sub_id, current_term_start, current_term_exp, date_of_origin, autorenew,active)
-VALUES(1, 1, now(), now() + '1 month', now(), true, true), 
-(2, 2, now() + '1 day', now() + '1 year', now(), false, true), 
-(2, 1, '2022-10-11', '2022-11-11', now(), true, null),
-(3, 1, '2022-10-11', '2022-11-11', now(), true, true);
-
-INSERT INTO cust_sub_pay_hist
-(cust_sub_id, pay_date, amt, description)
-VALUES(1, '2022-11-27', 8.5, 'got the auto renew discount'),(2, '2022-11-26', 100, 'Base Price');
-
-
-INSERT INTO cust_sub_featurepk
-(cust_subid, featpkid, autorenew, current_term_start, current_term_end, numberofmonths, date_of_origin)
-VALUES(1, 1, false, now(), now() + '1 month', 1, now()),
-(2, 2, true, now(), now() + '1 year', 12, now());
-
-INSERT INTO public.cust_sub_feat_pay_hist
-(cust_sub_feat_id, pay_date, amt, description)
-VALUES(1, '2022-11-25', 5, ''),(2, '2022-11-24', 20, '');
-
-
-INSERT INTO gameplay_record
-(cust_subid, gameid, starttime, duration)
-VALUES(1, 1, now(), '1 hour 37 minutes 14 seconds'), (2, 2, now(), '1 week'), (2, 2, now(), '1 month');
