@@ -226,19 +226,272 @@ begin
 	
 end;$$
 
-select * from customer;
-
-call makecustomers(10);
-create or replace procedure makecust_sub(counter int)
-language plpgsql 
-as $$
-declare
-
+-- make_cust_sub
+CREATE OR REPLACE PROCEDURE make_cust_sub(IN number_of_potential_contracts integer DEFAULT 1)
+ LANGUAGE plpgsql
+AS $$
+declare 
+	cust_curs cursor for select * from customer; 
+	cust_current record;
+	rSub int;
+	rDeterminer int;
+	origin_date timestamp;
+	temp_term_start timestamp;
+	temp_term_exp timestamp;
+	temp_active bool; 
+	temp_autorenew bool;
+	temp_interval text;
 begin 
-  	 --needed: get random date within a span of 2 years
- commit;
 	
-end;$$
+	open cust_curs;
+	loop
+		fetch cust_curs into cust_current;
+		exit when not found;
+	
+		for t in 0..number_of_potential_contracts by 1 
+		loop 
+			
+			SELECT
+				sub.id 
+			into rSub
+			FROM
+				sub OFFSET floor(random() * (
+					SELECT
+						COUNT(*)
+						FROM sub))
+			LIMIT 1;
+			
+			origin_date :='2020-01-01'::timestamp + (random() * (interval '2 years')) + '0 days';
+			temp_term_start := origin_date + (random() * (interval '2 years')) + '0 days'; 
+		
+			select s.numberofmonths
+			into temp_interval
+			from sub s 
+			where (rSub = s.id);
+			temp_interval := temp_interval || ' months';
+			temp_term_exp := temp_term_start + temp_interval::interval;
+			select (random() * 10) 
+			into rDeterminer;
+			
+			if t = 1 then 
+			temp_active = true;
+			else 
+			temp_active = null;
+			end if;
+		
+			if rDeterminer % 4 = 0 then
+			temp_autorenew = true;
+			else
+			temp_autorenew = null;
+			end if;
+			
+			insert into cust_sub 
+			(cust_id, sub_id, current_term_start, current_term_exp, date_of_origin, autorenew,active)
+			values (cust_current.id, rsub, temp_term_start, temp_term_exp, origin_date, temp_autorenew, temp_active);
+		end loop;
+	end loop;
+	close cust_curs; 
+end;
+$$
+;
+
+-- makes_login_history
+
+CREATE OR REPLACE PROCEDURE public.make_login_history(IN number_of_logins_per_cust integer)
+ LANGUAGE plpgsql
+AS $$
+declare 
+	cust_curs cursor for select * from customer;
+	current_cust record;
+	rDeterminer int;
+	mod_success bool;
+	rlogin timestamp;
+	rlogout timestamp; 
+begin 
+	
+	open cust_curs; 
+	loop
+		
+	fetch cust_curs into current_cust;
+	exit when not found;
+	
+		for t in 0..number_of_logins_per_cust by 1
+		loop 
+			rlogin := null;
+			rlogout := null;
+			select (random() * 10) 
+			into rDeterminer;
+			rlogin :='2020-01-01'::timestamp + (random() * (interval '2 years')) + '0 days';
+			if rDeterminer % 3 = 0 then 
+			--failed to login
+			mod_success = false;
+			rlogout := rlogin +  '1 minute';
+			else 
+			--succeded login
+			mod_success = true;
+			if rDeterminer % 7 = 0 then
+			rlogout := rlogin + (random() *  (interval'5 days'));
+			end if;
+			
+			end if; 
+			insert into log_in_out_history 
+			(success, customerid,login,logout)
+			values (mod_success, current_cust.id ,rlogin, rlogout);
+		end loop;
+		
+	
+	end loop;
+	close cust_curs;
+	
+end;
+$$
+;
+
+-- simulates a game being played
+CREATE OR REPLACE PROCEDURE public.play_game(IN gameid integer, IN custid integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare 
+	cust_sub_id int; 
+	game_feat record; 
+	gameplay_record_id int;
+	can_play bool;
+	temp_record record;
+	my_cursor cursor for select gf.game_id , gf.feat_id 
+						from game_feat gf where (gf.game_id = gameid);
+begin
+	select cs.cust_id 
+	into cust_sub_id
+	from customer c inner join 
+	cust_sub cs on(c.id = cs.cust_id)
+	where (cs.cust_id = custid );
+	 select game_playable(gameid, custid) into can_play;
+	if can_play then 
+		insert into gameplay_record 
+		(cust_subid, gameid, starttime, duration)
+		values (cust_sub_id, gameid, now(), null)
+		returning "id" into gameplay_record_id;
+		
+		open my_cursor;
+		loop
+			fetch my_cursor into temp_record;
+			exit when not found;
+			insert into game_feature_pack_rev 
+			(game_record_id, feature_pack_id) 
+			values (temp_record.game_id, temp_record.feat_id);
+		end loop;
+		close my_cursor;
+	else 
+		raise exception using
+            errcode='CPTGL',
+            message='This customer can not play that game',
+            hint='they are poor';
+	end if; 
+	
+end; 
+$procedure$
+;
+
+-- checks if a game is playable for a given customer.
+CREATE OR REPLACE FUNCTION public.game_playable(gameid integer, custid integer)
+ RETURNS boolean
+ LANGUAGE plpgsql
+AS $function$
+declare 
+	all_feat_for_game record;
+	target_game int := gameid;
+	game_count int; 
+begin
+	select count(*)
+	into game_count
+	from (
+	((select g.game_name, g.id from customer
+    inner join cust_sub cs on (customer.id = cs.cust_id and customer.id = custid)
+    left join cust_sub_featurepk csf on (cs.id = csf.cust_subid)
+    left join featurepack f on (csf.featpkid = f.id)
+    left join game_feat gf on (f.id = gf.feat_id)
+	left join game g on (gf.game_id = g.id) 
+	where (g.id is not null and g.id = gameid)) )
+    Union (select g.game_name , g.id from game g where (g.public = true and g.id = gameid) )) as x;
+	
+   	if game_count > 0 then 
+   	return true;
+   	else
+   	return false;
+   	end if; 
+end;
+$function$
+;
+
+
+CREATE OR REPLACE PROCEDURE public.make_cust_sub(IN number_of_potential_contracts integer DEFAULT 1)
+ LANGUAGE plpgsql
+AS $procedure$
+declare 
+	cust_curs cursor for select * from customer; 
+	cust_current record;
+	rSub int;
+	rDeterminer int;
+	origin_date timestamp;
+	temp_term_start timestamp;
+	temp_term_exp timestamp;
+	temp_active bool; 
+	temp_autorenew bool;
+	temp_interval text;
+begin 
+	
+	open cust_curs;
+	loop
+		fetch cust_curs into cust_current;
+		exit when not found;
+	
+		for t in 0..number_of_potential_contracts by 1 
+		loop 
+			
+			SELECT
+				sub.id 
+			into rSub
+			FROM
+				sub OFFSET floor(random() * (
+					SELECT
+						COUNT(*)
+						FROM sub))
+			LIMIT 1;
+			
+			origin_date :='2020-01-01'::timestamp + (random() * (interval '2 years')) + '0 days';
+			temp_term_start := origin_date + (random() * (interval '2 years')) + '0 days'; 
+		
+			select s.numberofmonths
+			into temp_interval
+			from sub s 
+			where (rSub = s.id);
+			temp_interval := temp_interval || ' months';
+			temp_term_exp := temp_term_start + temp_interval::interval;
+			select (random() * 10) 
+			into rDeterminer;
+			
+			if t = 1 then 
+			temp_active = true;
+			else 
+			temp_active = null;
+			end if;
+		
+			if rDeterminer % 4 = 0 then
+			temp_autorenew = true;
+			else
+			temp_autorenew = null;
+			end if;
+			
+			insert into cust_sub 
+			(cust_id, sub_id, current_term_start, current_term_exp, date_of_origin, autorenew,active)
+			values (cust_current.id, rsub, temp_term_start, temp_term_exp, origin_date, temp_autorenew, temp_active);
+		end loop;
+	end loop;
+	close cust_curs; 
+end;
+$procedure$
+;
+
 
 create or replace procedure makecust_sub_pay_hist(counter int)
 language plpgsql 
@@ -252,19 +505,55 @@ begin
 	
 end;$$
 
-create or replace procedure makelog_in_out_history(counter int)
-language plpgsql 
-as $$
-declare
-
+CREATE OR REPLACE PROCEDURE public.make_login_history(IN number_of_logins_per_cust integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare 
+	cust_curs cursor for select * from customer;
+	current_cust record;
+	rDeterminer int;
+	mod_success bool;
+	rlogin timestamp;
+	rlogout timestamp; 
 begin 
-  	 --pick random date for login
-	--70% work as login
-	--50% of those log out
-	--duration set as a random number of hours
- commit;
 	
-end;$$
+	open cust_curs; 
+	loop
+		
+	fetch cust_curs into current_cust;
+	exit when not found;
+	
+		for t in 0..number_of_logins_per_cust by 1
+		loop 
+			rlogin := null;
+			rlogout := null;
+			select (random() * 10) 
+			into rDeterminer;
+			rlogin :='2020-01-01'::timestamp + (random() * (interval '2 years')) + '0 days';
+			if rDeterminer % 3 = 0 then 
+			--failed to login
+			mod_success = false;
+			rlogout := rlogin +  '1 minute';
+			else 
+			--succeded login
+			mod_success = true;
+			if rDeterminer % 7 = 0 then
+			rlogout := rlogin + (random() *  (interval'5 days'));
+			end if;
+			
+			end if; 
+			insert into log_in_out_history 
+			(success, customerid,login,logout)
+			values (mod_success, current_cust.id ,rlogin, rlogout);
+		end loop;
+		
+	
+	end loop;
+	close cust_curs;
+	
+end;
+$procedure$
+;
 
 create or replace procedure makecust_sub_featurepk(counter int)
 language plpgsql 
@@ -290,26 +579,67 @@ begin
 
 end;$$
 
-create or replace procedure makedeveloper(counter int)
-language plpgsql 
-as $$
-declare
-
+create or replace procedure make_developers(num_of_dev int default 10) 
+language plpgsql as 
+$$
+declare 
+	dev_id int;
 begin 
-  	 ----Generate 1/10 of expected developers
- commit;
+	for t in 1..num_of_dev by 1 
+	loop 
+		insert into developer 
+		(developername, company_address)
+		values ('', '')
+	returning id into dev_id;
+	update developer 
+	set developername = 'Game Company ' || dev_id,
+		company_address = 'Company on ' || dev_id || ' Sesame St NY, US'
+	where (id = dev_id);
+	end loop; 
+end;
+$$
 
-end;$$
-create or replace procedure makegame(counter int)
-language plpgsql 
-as $$
-declare
 
+create or replace procedure make_Games(num_of_games_per_dev int default 10) 
+language plpgsql as 
+$$
+declare 
+	all_devs_curs cursor for select d.developername, id from developer d; 
+	current_dev record;
+	temp_game_id int;
+	rDeterminer int; 
+	rMod int; 
+	temp_public bool; 
 begin 
-  	 ----Generate 10 games per developer of expected developers
- commit;
+	
+	open all_devs_curs;
+	loop
+		
+		fetch all_devs_curs into current_dev;
+		exit when not found;
+		for t in 1..num_of_games_per_dev by 1
+		loop
+		select (random() * 100) 
+			into rDeterminer;
+		select (random() * 10)
+			into rMod;
+		if rMod = 0 or rDeterminer % rMod = 0 then
+		temp_public := true;
+		else
+		temp_public := false;
+		end if;
+				insert into game 
+				(game_name, dev_id, public) 
+				values ('', current_dev.id, temp_public ) returning id into temp_game_id;
+			update game 
+			set game_name = 'Game ' || temp_game_id
+			where (game.id = temp_game_id );
+			end loop;
+	end loop;
+end;
+$$ 
 
-end;$$
+
 create or replace procedure makegame_feat(counter int)
 language plpgsql 
 as $$
