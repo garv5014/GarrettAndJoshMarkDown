@@ -640,17 +640,35 @@ end;
 $$ 
 
 
-create or replace procedure makegame_feat(counter int)
-language plpgsql 
-as $$
-declare
-
+create or replace procedure connect_games_to_featurepack() 
+language plpgsql as 
+$$
+declare 
+	private_games_curs cursor for select g.id from game g where (public = false);
+	all_private_games record; 
+	game_feat_count int; 
+	feat_count int;
+	Feat int; 
 begin 
-  	--75% of games go into a feature pack
-	--1/3 of those go into each one
- commit;
-
-end;$$
+	select count(*)
+	into feat_count
+	from featurepack; 
+	 open private_games_curs;
+		loop
+			fetch private_games_curs into all_private_games;
+			exit when not found;
+			Feat := all_private_games.id % feat_count; 
+			if Feat <> 0 and  Feat = 1 then
+			INSERT INTO public.game_feat (game_id, feat_id) VALUES(all_private_games.id, Feat);
+			INSERT INTO public.game_feat (game_id, feat_id) VALUES(all_private_games.id, Feat+1);
+			elseif Feat <> 0 then
+			INSERT INTO public.game_feat (game_id, feat_id) VALUES(all_private_games.id, Feat);
+			else
+			end if;
+		end loop; 
+	close private_games_curs;
+end;
+$$
 
 create or replace procedure makegameplay_record(counter int)
 language plpgsql 
