@@ -579,26 +579,67 @@ begin
 
 end;$$
 
-create or replace procedure makedeveloper(counter int)
-language plpgsql 
-as $$
-declare
-
+create or replace procedure make_developers(num_of_dev int default 10) 
+language plpgsql as 
+$$
+declare 
+	dev_id int;
 begin 
-  	 ----Generate 1/10 of expected developers
- commit;
+	for t in 1..num_of_dev by 1 
+	loop 
+		insert into developer 
+		(developername, company_address)
+		values ('', '')
+	returning id into dev_id;
+	update developer 
+	set developername = 'Game Company ' || dev_id,
+		company_address = 'Company on ' || dev_id || ' Sesame St NY, US'
+	where (id = dev_id);
+	end loop; 
+end;
+$$
 
-end;$$
-create or replace procedure makegame(counter int)
-language plpgsql 
-as $$
-declare
 
+create or replace procedure make_Games(num_of_games_per_dev int default 10) 
+language plpgsql as 
+$$
+declare 
+	all_devs_curs cursor for select d.developername, id from developer d; 
+	current_dev record;
+	temp_game_id int;
+	rDeterminer int; 
+	rMod int; 
+	temp_public bool; 
 begin 
-  	 ----Generate 10 games per developer of expected developers
- commit;
+	
+	open all_devs_curs;
+	loop
+		
+		fetch all_devs_curs into current_dev;
+		exit when not found;
+		for t in 1..num_of_games_per_dev by 1
+		loop
+		select (random() * 100) 
+			into rDeterminer;
+		select (random() * 10)
+			into rMod;
+		if rMod = 0 or rDeterminer % rMod = 0 then
+		temp_public := true;
+		else
+		temp_public := false;
+		end if;
+				insert into game 
+				(game_name, dev_id, public) 
+				values ('', current_dev.id, temp_public ) returning id into temp_game_id;
+			update game 
+			set game_name = 'Game ' || temp_game_id
+			where (game.id = temp_game_id );
+			end loop;
+	end loop;
+end;
+$$ 
 
-end;$$
+
 create or replace procedure makegame_feat(counter int)
 language plpgsql 
 as $$
