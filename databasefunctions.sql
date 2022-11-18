@@ -424,17 +424,74 @@ $function$
 ;
 
 
-call makecustomers(10);
-create or replace procedure makecust_sub(counter int)
-language plpgsql 
-as $$
-declare
-
+CREATE OR REPLACE PROCEDURE public.make_cust_sub(IN number_of_potential_contracts integer DEFAULT 1)
+ LANGUAGE plpgsql
+AS $procedure$
+declare 
+	cust_curs cursor for select * from customer; 
+	cust_current record;
+	rSub int;
+	rDeterminer int;
+	origin_date timestamp;
+	temp_term_start timestamp;
+	temp_term_exp timestamp;
+	temp_active bool; 
+	temp_autorenew bool;
+	temp_interval text;
 begin 
-  	 --needed: get random date within a span of 2 years
- commit;
 	
-end;$$
+	open cust_curs;
+	loop
+		fetch cust_curs into cust_current;
+		exit when not found;
+	
+		for t in 0..number_of_potential_contracts by 1 
+		loop 
+			
+			SELECT
+				sub.id 
+			into rSub
+			FROM
+				sub OFFSET floor(random() * (
+					SELECT
+						COUNT(*)
+						FROM sub))
+			LIMIT 1;
+			
+			origin_date :='2020-01-01'::timestamp + (random() * (interval '2 years')) + '0 days';
+			temp_term_start := origin_date + (random() * (interval '2 years')) + '0 days'; 
+		
+			select s.numberofmonths
+			into temp_interval
+			from sub s 
+			where (rSub = s.id);
+			temp_interval := temp_interval || ' months';
+			temp_term_exp := temp_term_start + temp_interval::interval;
+			select (random() * 10) 
+			into rDeterminer;
+			
+			if t = 1 then 
+			temp_active = true;
+			else 
+			temp_active = null;
+			end if;
+		
+			if rDeterminer % 4 = 0 then
+			temp_autorenew = true;
+			else
+			temp_autorenew = null;
+			end if;
+			
+			insert into cust_sub 
+			(cust_id, sub_id, current_term_start, current_term_exp, date_of_origin, autorenew,active)
+			values (cust_current.id, rsub, temp_term_start, temp_term_exp, origin_date, temp_autorenew, temp_active);
+		end loop;
+	end loop;
+	close cust_curs; 
+end;
+$procedure$
+;
+
 
 create or replace procedure makecust_sub_pay_hist(counter int)
 language plpgsql 
@@ -448,19 +505,55 @@ begin
 	
 end;$$
 
-create or replace procedure makelog_in_out_history(counter int)
-language plpgsql 
-as $$
-declare
-
+CREATE OR REPLACE PROCEDURE public.make_login_history(IN number_of_logins_per_cust integer)
+ LANGUAGE plpgsql
+AS $procedure$
+declare 
+	cust_curs cursor for select * from customer;
+	current_cust record;
+	rDeterminer int;
+	mod_success bool;
+	rlogin timestamp;
+	rlogout timestamp; 
 begin 
-  	 --pick random date for login
-	--70% work as login
-	--50% of those log out
-	--duration set as a random number of hours
- commit;
 	
-end;$$
+	open cust_curs; 
+	loop
+		
+	fetch cust_curs into current_cust;
+	exit when not found;
+	
+		for t in 0..number_of_logins_per_cust by 1
+		loop 
+			rlogin := null;
+			rlogout := null;
+			select (random() * 10) 
+			into rDeterminer;
+			rlogin :='2020-01-01'::timestamp + (random() * (interval '2 years')) + '0 days';
+			if rDeterminer % 3 = 0 then 
+			--failed to login
+			mod_success = false;
+			rlogout := rlogin +  '1 minute';
+			else 
+			--succeded login
+			mod_success = true;
+			if rDeterminer % 7 = 0 then
+			rlogout := rlogin + (random() *  (interval'5 days'));
+			end if;
+			
+			end if; 
+			insert into log_in_out_history 
+			(success, customerid,login,logout)
+			values (mod_success, current_cust.id ,rlogin, rlogout);
+		end loop;
+		
+	
+	end loop;
+	close cust_curs;
+	
+end;
+$procedure$
+;
 
 create or replace procedure makecust_sub_featurepk(counter int)
 language plpgsql 
