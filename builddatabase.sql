@@ -164,8 +164,8 @@ on delete set null;
 
 CREATE TABLE gameplay_record (
 	id serial4 NOT NULL,
-	cust_subid serial4 not null,
-	gameid serial4 not null,
+	cust_subid int4 not null,
+	gameid int4 not null,
 	starttime timestamp null,
 	duration interval null,
 	CONSTRAINT cust_game_pk PRIMARY KEY (id)
