@@ -103,7 +103,7 @@ CREATE TABLE cust_sub (
 	id serial4 NOT NULL,
 	cust_id int4 not null,
 	sub_id int4 not null,
-	current_term_start timestamp not null,
+	current_term_start timestamp not null check(current_term_start >= date_of_origin),
 	current_term_exp timestamp not null constraint exp_greater_then_start check(current_term_exp > current_term_start),
 	date_of_origin timestamp null,
 	autorenew bool null,
@@ -111,6 +111,7 @@ CREATE TABLE cust_sub (
 	unique(cust_id, active),
 	CONSTRAINT cust_sub_pk PRIMARY KEY (id)
 );
+
 
 ALTER TABLE  cust_sub ADD CONSTRAINT cust_sub_fk FOREIGN KEY (cust_id) REFERENCES customer(id)
 on delete set null;
