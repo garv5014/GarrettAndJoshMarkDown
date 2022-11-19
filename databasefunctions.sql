@@ -402,7 +402,7 @@ begin
 		
 		for temp_record in (
 		select gf.game_id , gf.feat_id 
-						from game_feat gf where (gf.game_id = 7)
+						from game_feat gf where (gf.game_id = gameid)
 		)loop
 			insert into game_feature_pack_rev 
 			(game_record_id, feature_pack_id) 
