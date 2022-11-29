@@ -1,0 +1,26 @@
+# Phase  3
+
+- 2 Chains (2x14=28pts)
+    - 2pt - chain easily identified {don't make it confusing - keep it easy to grade}
+    - Procedure that inserts rows for entire chain
+    - 2pts - each step is easily identified 
+    - 10pts - chain produces 500,000+ rows
+- 2+ views  (2x5pts=10pts) The two report. 
+    - 2pts - appropriate name
+    - 2pts - sql syntax is correct
+    - 1pt - call & output provided
+- 2+ plpgsql functions (2x5pts=10pts) Game_playable(returns bool) Check_Concurrent_log_ins(returns bool)
+    - 2pts - appropriate name, appropriate return type
+    - 2pts - sql syntax is correct
+    - 1pt - call & output provided
+- 2+ plpgsql procedures(2x5pts=10pts) Simulate_Game_Play Renewing_subscription 
+    - 2pts - appropriate name
+    - 2pts - sql syntax is correct
+    - 1pt - call & output provided
+- Architecture write up: (10pts)
+    - List of what functions/procedures/views belong in the DB
+    - 2pts - list is clear/correct
+    - 3pts - reasoning is clear/correct
+    - List of what functions/procedures/views belong in the Class   - Library (not in the DB)
+    - 2pts - list is clear/correct
+    - 3pts - reasoning is clear/correct
