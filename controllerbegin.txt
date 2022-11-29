@@ -1,0 +1,55 @@
+Controller code
+
+using Microsoft.AspNetCore.Mvc;
+using GOLApp.Api.Data;
+using Npgsql.Replication;
+namespace GOLApp.Api.Controllers
+{
+    [ApiController]
+    [Route("[controller]")]
+    public class GOLController : ControllerBase
+    {
+        private readonly GolData context;
+
+        private readonly GoLService service;
+
+        private readonly ILogger<GOLController> _logger;
+
+        public GOLController(ILogger<GOLController> logger, GolData context, GoLService service)
+        {
+            _logger = logger;
+            this.service= service;
+            this.context = context;
+        }
+
+        [HttpGet(Name = "GetSubTier")]
+        public async Task<ICollection<SubTier>> Get()
+        {
+
+            return await service.GetSubTierList();
+            
+        }
+    }
+}
+
+service code
+
+namespace GOLApp.Api.Data
+{
+    public class GoLService
+    {
+        private readonly GolData context;
+
+        public GoLService(GolData context)
+        {
+            this.context = context;
+        }
+
+        internal async Task<ICollection<SubTier>> GetSubTierList()
+        {
+            var subtier = context.SubTiers.ToList();
+            return subtier;
+        }
+
+    }
+}
