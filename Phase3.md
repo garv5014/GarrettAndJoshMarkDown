@@ -2,7 +2,13 @@
 
 - 2 Chains (2x14=28pts)
     - Chain 1 cust_sub_pay_hist
+        - subtier ->sub -> cust_sub
+        - customer -> cust_sub
+        - cust_sub -> cust_sub_pay_hist
     - Chain 2 cust_sub_feat_pay_hist
+        - subtier ->sub -> cust_sub
+        - customer -> cust_sub
+        - cust_sub -> cust_sub_featurepk -> cust_sub_feat_pay_hist
     - 2pt - chain easily identified {don't make it confusing - keep it easy to grade}
     - Procedure that inserts rows for entire chain
     - 2pts - each step is easily identified 
