@@ -1,6 +1,8 @@
 # Phase  3
 
 - 2 Chains (2x14=28pts)
+    - Chain 1 cust_sub_pay_hist
+    - Chain 2 cust_sub_feat_pay_hist
     - 2pt - chain easily identified {don't make it confusing - keep it easy to grade}
     - Procedure that inserts rows for entire chain
     - 2pts - each step is easily identified 
@@ -9,7 +11,7 @@
     - 2pts - appropriate name
     - 2pts - sql syntax is correct
     - 1pt - call & output provided
-- 2+ plpgsql functions (2x5pts=10pts) Game_playable(returns bool) Check_Concurrent_log_ins(returns bool)
+- 2+ plpgsql functions (2x5pts=10pts) Game_playable done (returns bool) Check_Concurrent_log_ins(returns bool done 
     - 2pts - appropriate name, appropriate return type
     - 2pts - sql syntax is correct
     - 1pt - call & output provided
