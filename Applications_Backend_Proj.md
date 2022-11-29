@@ -14,7 +14,7 @@
     - Can only have the allowed amount of concurrent logins
 - Game Dev
     - Can see a report of all their earning for a given month
-        - The report show the game amount earned and the total duration it was played.
+        - The report show the amount each game earned and the total duration it was played.
     - They can add/make more games but not add them to feature packs.
 - Admin
     - Can add games to feature packs. 
@@ -22,6 +22,7 @@
     - They have a basic report that shows the developer's name and how much they are owed. 
     - They can see another report that shows the most played feature packs in order from most to least along with that packs most played game for the given month.
     - Can change the price of a current feature pack? 
+
 
 
  
