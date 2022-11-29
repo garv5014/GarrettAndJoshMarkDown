@@ -97,7 +97,7 @@ id    |cust_sub_feat_id|pay_date               |amt  |description               
     - 1pt - call & output provided
 
 ## Current Customer info
-    ```sql
+```sql
     CREATE or replace VIEW currentcustomers AS
     SELECT c.id, c.firstname, c.surname, c.username, cs.date_of_origin, s.numberofmonths, st.tiername
     FROM customer c inner join cust_sub cs on (c.id = cs.cust_id)
@@ -117,7 +117,7 @@ id    |cust_sub_feat_id|pay_date               |amt  |description               
     7|Person6  |Personson6|User6   |2021-02-13 21:04:32.678|             1|Bronze  |
     8|Person7  |Personson7|User7   |2020-03-07 03:46:53.270|            12|Silver  |
     9|Person8  |Personson8|User8   |2021-02-27 09:55:00.739|             1|Bronze  |
-    ```
+```
 
 ## BaseSubRevReport 
 ```sql
@@ -185,9 +185,20 @@ end;
 $function$
 ;
 
-
+developer       |payout|pay_month              |
+----------------+------+-----------------------+
+Game Company 1  | $0.17|2022-10-01 00:00:00.000|
+Game Company 2  | $0.00|2022-10-01 00:00:00.000|
+Game Company 3  | $0.24|2022-10-01 00:00:00.000|
+Game Company 4  | $0.25|2022-10-01 00:00:00.000|
+Game Company 5  | $0.26|2022-10-01 00:00:00.000|
+Game Company 6  | $0.19|2022-10-01 00:00:00.000|
+Game Company 7  | $0.25|2022-10-01 00:00:00.000|
+Game Company 8  | $0.00|2022-10-01 00:00:00.000|
+Game Company 9  | $0.17|2022-10-01 00:00:00.000|
+Game Company 10 | $0.17|2022-10-01 00:00:00.000|
 ```
-# Fucntions
+# Functions
 - 2+ plpgsql functions (2x5pts=10pts) Game_playable(returns bool) Can_login(returns bool)
     - 2pts - appropriate name, appropriate return type
     - 2pts - sql syntax is correct
@@ -277,7 +288,7 @@ $function$
 # Procedures 
 - 2+ plpgsql procedures(2x5pts=10pts) Simulate_Game_Play Renewing_subscription 
 
-## Simuating a game play
+## Simulating a game play
 - We seeded the azure database with only 10000 customers which means we had 1000 gamdevs each with at least one game. We had ever customer try to play every game twice and we got 7 million plus gameplays.
 ```sql
 CREATE OR REPLACE PROCEDURE public.simulate_playing_games(IN number_of_plays_per_game integer DEFAULT 10)
@@ -376,6 +387,23 @@ end;$procedure$
 
 call renew_sub(2);
 
+--ouput 
+--before renew procedure ran
+/*
+id|cust_subid|featpkid|autorenew|current_term_start     |current_term_end       |numberofmonths|date_of_origin         |
+--+----------+--------+---------+-----------------------+-----------------------+--------------+-----------------------+
+ 1|         1|       1|false    |2022-11-17 18:59:18.048|2022-12-17 18:59:18.048|             1|2022-11-17 18:59:18.048|
+ 2|         2|       2|true     |2022-11-17 18:59:18.048|2023-11-17 18:59:18.048|            12|2022-11-17 18:59:18.048|
+ 4|         1|       1|true     |2022-09-22 18:59:17.970|2022-10-22 18:59:17.970|             1|2018-11-17 18:59:17.970|
+
+ --after renew procedure ran
+ id|cust_subid|featpkid|autorenew|current_term_start     |current_term_end       |numberofmonths|date_of_origin    |
+--+----------+--------+---------+-----------------------+-----------------------+--------------+-----------------------+
+ 1|         1|       1|false    |2022-11-17 18:59:18.048|2022-12-17 18:59:18.048|             1|2022-11-17 18:59:18.048|
+ 2|         2|       2|true     |2022-11-17 18:59:18.048|2023-11-17 18:59:18.048|            12|2022-11-17 18:59:18.048|
+ 4|         1|       1|true     |2022-10-22 18:59:17.970|2022-11-17 00:00:00.000|             1|2018-11-17 18:59:17.970|
+ */
+
 
 ``` 
 - 2pts - appropriate name
@@ -384,9 +412,15 @@ call renew_sub(2);
 
 # Architecture
 - Architecture write up: (10pts)
-    - List of what functions/procedures/views belong in the DB
-    - 2pts - list is clear/correct
-    - 3pts - reasoning is clear/correct
-    - List of what functions/procedures/views belong in the Class   - Library (not in the DB)
-    - 2pts - list is clear/correct
-    - 3pts - reasoning is clear/correct
+    ## List of what functions/procedures/views belong in the DB
+    - Simulating a Game play. We think that this would e a good fit on the database because it deals with data integrity of not letting users play games they aren't suppose to. Thus stopping bad data from being insereted in the game_record table. 
+    - Renewing a subscription. We plan to have this procedure be ran by the schedular every x amount of time to autorenew subscription that have opted in. 
+    - Adding a new game. This is a simple insertion of data that only developers should have access to so to help maintain the database and so that it is fast we feel like the database would be a good home for this. 
+    - Generating the reports. This functionality shouldn't change to much so the database is a good place for it. It will make the api call really simple so that we just call the function and then display the results.
+        - 2pts - list is clear/correct
+        - 3pts - reasoning is clear/correct
+    ## List of what functions/procedures/views belong in the Class   
+    - Making a new customer and adding their subscription. We think it works for the api due us getting there credentials from a form rather then in the database. Then with that information we can connect them to a subscription. 
+    - Can_login and Can_play. These two functions are mainly incharge of enforcing business logic so it makes sense for them to be in the api. But it would also be easy to writes these in teh database and just call them when needed. 
+        - 2pts - list is clear/correct
+        - 3pts - reasoning is clear/correct
