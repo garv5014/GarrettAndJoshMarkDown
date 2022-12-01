@@ -5,8 +5,20 @@
     - Bronze ($5/month or $50/year), 1 concurrent login
 	```sql 
     select * from sub_tier;
-    ```
+
+	id|baseprice|tiername|concurrentlogin|active|
+	1|    $5.00|Bronze  |              1|true  | 
+
+	2|    $8.00|Silver  |              2|true  |
+
+	3|   $10.00|Gold    |              5|true  |
+
+	```
+
+
+
     -We can see the number of concurrent logins for each user (to enforce above information)
+
     ```sql
     select lioh.customerid, count(*)
     from log_in_out_history lioh 
@@ -22,8 +34,17 @@
     - HighSciFi GamePack ($3/month, $30/year) (no-auto-renewal rate: $4/month)
     - DungeonDweller GamePack ($1/month, $10/year) (no-auto-renewal rate: $2/month)
      ```sql
-    select * from featurepack; select * from cust_sub_featurepk;
-    
+    select * from featurepack where (active = true);
+	id|pack_name              |baseprice|active|
+	 1 |Retro GamePack         |    $3.00|true  |
+	 2 |HighSciFi GamePack     |    $4.00|true  |
+	 3 |DungeonDweller GamePack|    $2.00|true  |select * from cust_sub_featurepk where (active = true) limit 5;
+    id|cust_subid|featpkid|autorenew|current_term_start     |current_term_end       |numberofmonths|date_of_origin         |active|
+	 2|         1|       3|         |2020-11-24 10:13:07.651|2021-11-24 10:13:07.651|            12|2020-07-06 00:33:17.136|true  |
+	 4|         2|       6|         |2021-11-02 17:18:47.750|2021-12-02 17:18:47.750|             1|2021-05-21 06:21:17.424|true  
+	  6|         3|       1|         |2020-07-20 04:02:20.428|2021-07-20 04:02:20.428|            12|2020-04-16 17:10:22.569|true  
+	   8|         4|       6|true     |2021-02-01 21:46:37.891|2021-03-01 21:46:37.891|             1|2020-11-21 09:20:27.744|true  
+	   10|         5|       4|         |2023-05-26 16:29:26.476|2024-05-26 16:29:26.476|            12|2021-10-02 12:13:09.264|true  |
     ```
     - A feature pack can be active or inactive letting people be grandfathered in. Customers can't sign up for inactive feature packs
 
@@ -71,6 +92,11 @@ return false;
 end if; 
 end;
 $$;
+
+select game_playable(8,9);
+game_playable|
+-------------+
+true         |
 ```
  ```sql
     select * from cust_sub_featurepk;
@@ -105,11 +131,13 @@ $$;
 - Every time a user logs on to our service, 
     - we validate their account, (external autheniscation used) 
     - validate concurrent login limits
+
     ```sql
-    select lioh.customerid, count(*)
-    from log_in_out_history lioh 
-    where (logout is null)
-    group by lioh.customerid;
+	select can_login(3); 
+
+	can_login|
+
+	false    |
 
     ```
     - log the attempt (success or failure)

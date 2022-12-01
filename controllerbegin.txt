@@ -100,3 +100,16 @@ public class MigrationApplier : IHostedService
         return Task.CompletedTask;
     }
 }
+
+
+
+
+
+
+
+
+{
+  "connection_string": {
+    "init": "Server=joshgarrett2022.postgres.database.azure.com;Database=finalproject;Port=5433;User Id=GG;Password=Drowss4p;"
+  }
+}
